@@ -8,6 +8,8 @@ translation_key: lmcraft-changelog
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-19 @ 21:05
+
 ### Summary
 
 Install Autoconf automatically when missing so fresh hosts have the required
