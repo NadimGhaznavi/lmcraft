@@ -1,2 +1,3 @@
-# jhcraft
-JHCore meets Minecraft
+# lmcraft
+
+[LambdaMOO meets Minecraft](https://lmcraft.osoyalce.com)
