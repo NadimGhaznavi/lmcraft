@@ -8,6 +8,8 @@ translation_key: lmcraft-changelog
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-19 @ 20:52
+
 ### Summary
 
 Build and install LMCraft's LambdaMOO server as a persistent systemd service on
