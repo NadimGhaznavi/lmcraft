@@ -16,6 +16,10 @@ tooling. Preserve the read-only upstream source and document the exact build,
 installation and operational commands on the project's GitHub Pages site.
 Fresh checkouts now install missing build prerequisites, compile the bundled
 source and deploy a clean new world with one command.
+The BMForge release script publishes version metadata, branches and annotated
+tags through the project's existing release workflow.
+Project instructions now connect the pinned skills, established application
+boundaries and complete installation/release scaffold.
 
 ### Added
 
@@ -30,6 +34,12 @@ source and deploy a clean new world with one command.
   and clean LambdaCore seed in Git; automatic missing-package provisioning,
   isolated compilation and offline executable verification before deployment.
 - Fresh-checkout, real client-login, missing-package and failed-build tests.
+- Executable `scripts/new-release.sh` adapted from the pinned BMForge template,
+  with release documentation and disposable local-remote tests for publication,
+  cancellation, preflight failures and atomic-push rejection.
+- Root `AGENTS.md` adapted from BMForge's canonical engineering instructions,
+  plus project-setup documentation identifying the existing attachment, pinned
+  standards, lifecycle entry points, release branches and validation commands.
 
 ### Changed
 
