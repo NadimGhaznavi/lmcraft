@@ -1,5 +1,4 @@
-# Original Lamda code
-MOO-1.9.0alpha/
+# The original LambdaMOO source is vendored unchanged for offline builds.
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -230,3 +229,6 @@ __marimo__/
 _site/
 .jekyll-cache/
 .jekyll-metadata
+
+# The upstream distribution manifest is source, not a Python build artifact.
+!/MOO-1.9.0alpha/MANIFEST
