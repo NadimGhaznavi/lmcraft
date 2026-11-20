@@ -1,182 +1,153 @@
 ---
-title: "Build and installation commands"
+title: "Install a new LMCraft world"
 lang: en
 locale: en-US
 language_name: English
 translation_key: lmcraft-installation
 ---
 
-LMCraft was compiled and installed on **19 November 2026**, on Debian 13
-(amd64), using the supplied **LambdaMOO 1.9.0alpha** distribution. The installed
-world is the standard **LambdaCore, 17 May 2004**, obtained from the
-[official LambdaMOO archive](https://lambda.moo.mud.org/pub/MOO/).
+LMCraft installs a fresh **LambdaCore** world and runs the bundled
+**LambdaMOO 1.9.0alpha** server as `lmcraft.service`, listening on TCP **3333**.
+The repository contains the complete source distribution and the clean seed
+database. No external source, world, or precompiled executable is downloaded.
+There is no world migration or import step.
 
-The upstream `MOO-1.9.0alpha/` directory is read-only. Configuration, compilation,
-staging, documentation and deployment tooling are all outside that directory.
-Production runs independently of the development checkout.
+## Install on the production host
 
-## Build prerequisites
+Use a Debian or Ubuntu host running systemd, with Bash and administrative
+access. The installer requires Python 3.10 or newer; it installs the host's
+`python3` package if Python is absent. Debian 12/13 and Ubuntu 22.04 or newer
+provide a suitable default Python. Git is needed to clone or update the checkout.
 
-The host already provided GCC, make, Autoconf, Python 3, curl, systemd and the
-development headers needed by the default ASCII build. The first configure
-attempt stopped at `configure: error: We need gperf`; neither gperf nor a
-yacc-compatible parser generator was installed. These exact commands added the
-two missing build tools:
+For a new checkout:
+
+```sh
+cd /opt/dev
+git clone https://github.com/NadimGhaznavi/lmcraft.git
+cd lmcraft
+sudo ./scripts/install.sh
+```
+
+For an existing checkout on a host where LMCraft has not yet been installed:
 
 ```sh
 cd /opt/dev/lmcraft
-sudo -n apt-get update
-sudo -n apt-get install -y bison gperf
+git pull --ff-only
+sudo ./scripts/install.sh
 ```
 
-This installed Bison `3.8.2` and gperf `3.2.1`. No optional Unicode, XML or Waif
-dependencies were added. No Autoconf regeneration was needed: the supplied
-distribution includes `configure`, `parser.c` and `keywords.c`.
+To deploy a particular release, check out its tag before running the installer.
+No build directory, staged executable or downloaded seed needs to be copied
+from a developer's machine.
 
-## Configure and compile outside the source tree
+## What the command does
 
-The first attempt used `../../MOO-1.9.0alpha/configure
---srcdir=../../MOO-1.9.0alpha` from `build/moo/` and failed on the missing
-prerequisites above. After installing those tools and choosing LambdaCore, the
-successful build used these exact commands:
+1. Validates deployment ownership, configuration, the bundled source checksums
+   and the seed database before changing the installation.
+2. Checks Debian package status for `build-essential`, `bison`, `gperf` and
+   `libcrypt-dev`. If any are missing, runs:
 
-```sh
-cd /opt/dev/lmcraft
-mkdir -p build/moo
-cd /opt/dev/lmcraft/build/moo
-../../MOO-1.9.0alpha/configure --srcdir=../../MOO-1.9.0alpha --enable-sz=i32,bq32
-make -j2
-cd /opt/dev/lmcraft
-mkdir -p scripts lmcraft/constants bin deploy tests pages
-install -m 0755 build/moo/moo bin/moo
-```
+   ```sh
+   apt-get update
+   apt-get install -y --no-install-recommends MISSING_PACKAGES
+   ```
 
-`--enable-sz=i32,bq32` follows the supplied upstream README's legacy database
-configuration: 32-bit MOO integers and historical 32-bit byte-quota accounting.
-This avoids changing LambdaCore's arithmetic and quota assumptions. The server
-itself is an amd64 executable. A future move to 64-bit MOO integers requires a
-world compatibility review; plan that change before 2038. Networking uses
-BSD/TCP, with outbound MOO connections disabled by default.
+   `MISSING_PACKAGES` represents only the packages missing on that host; it is
+   not a literal argument. If all are installed, no package-manager network
+   access is needed. Python bootstrap, when needed, uses the same commands
+   with `python3` as the package.
 
-`build/` and the staged `bin/moo` are ignored by Git. No build products are
-written into or checked into the upstream source directory.
+3. Creates a temporary build directory under the checkout's ignored `build/`
+   directory and executes these commands there, with `SOURCE` resolved to the
+   checkout's bundled `MOO-1.9.0alpha` directory:
 
-## Download and identify LambdaCore
+   ```sh
+   /bin/sh "$SOURCE/configure" --srcdir="$SOURCE" --enable-sz=i32,bq32
+   make -j2
+   ```
 
-```sh
-cd /opt/dev/lmcraft
-mkdir -p downloads
-curl --fail --location --show-error --output downloads/LambdaCore-17May04.db https://lambda.moo.mud.org/pub/MOO/LambdaCore-17May04.db
-sha256sum downloads/LambdaCore-17May04.db
-```
+4. Smoke-tests the compiled server in offline emergency mode: it must report
+   `1.9.0alpha` and use the intended 32-bit integer arithmetic. Stages the
+   executable at ignored `bin/moo` only after that succeeds.
+5. Deploys the executable, launch scripts, systemd unit and readable BMForge
+   version/ownership metadata to `/opt/prod/lmcraft`.
+6. Creates the `lmcraft` system account and initializes a new database from
+   the bundled clean LambdaCore seed. Assigns a random Wizard password using
+   SHA-512 crypt before the service accepts clients.
+7. Enables and starts `lmcraft.service`, then verifies an active service and
+   an actual MOO welcome banner on port 3333 before recording installation
+   success in `.deployment-version`.
 
-The downloaded file's SHA-256 was:
+The source directory is read only during installation. All generated build
+files live outside it; the installed server has no runtime dependency on the
+development checkout. Compiler and package failures occur before an existing
+service is stopped or its deployed files are replaced.
+
+## Bundled inputs
+
+| Input | Repository location |
+| --- | --- |
+| Original LambdaMOO 1.9.0alpha distribution | `MOO-1.9.0alpha/` |
+| Checksums for all upstream source files | `deploy/moo-source.sha256` |
+| Unmodified LambdaCore, 17 May 2004 | `deploy/LambdaCore-17May04.db` |
+
+The source is the existing supplied distribution, preserved byte for byte,
+including its original copyright notices and build files. The seed's SHA-256 is:
 
 ```text
 e453a0d4f837db9969e2fa00250c3a58aafcf0d843d96495c1dd81924ebf4747
 ```
 
-The installer pins this checksum and refuses a different seed database. This
-records the exact downloaded bytes; it is not an upstream signed checksum.
-The downloaded seed remains outside Git and is never used as the live world.
+The seed contains LambdaCore's standard foundation objects and commands. Each
+new host starts with its own fresh copy and private Wizard credential; no live
+world or credential is included in Git. Build flags retain LambdaCore's
+historical integer and quota behavior. Review a move to 64-bit MOO integers
+before 2038.
 
-## Prepare and validate the deployment tooling
+## Check and verify
 
-The installer and wrappers were adapted from the project's pinned BMForge
-templates. The installation contract is `bmforge.installation` **0.1.3**, pinned
-at BMForge commit `7554b12a17332876f69d845fa752c4945cf6a3a0`.
-
-```sh
-cd /opt/dev/lmcraft
-python3 .agents/bmforge/manage.py check --project .
-chmod +x scripts/install.sh scripts/upgrade.sh scripts/uninstall.sh scripts/run-moo scripts/check-health
-python3 -B scripts/check-cmdb.py --name LMCraft lmcraft/constants/DLMCraft.py
-bash -n scripts/install.sh scripts/upgrade.sh scripts/uninstall.sh scripts/run-moo scripts/check-health
-scripts/install.sh --help
-python3 -B -m unittest discover -s tests -v
-sudo -n scripts/install.sh --check
-```
-
-The four lifecycle tests passed. They exercise real LambdaCore initialization
-with the built binary in disposable directories, simulate the systemd service
-boundary, and cover repeated installation, upgrade, preserved configuration and
-world data, failed activation, missing prerequisites, read-only checks,
-uninstall, repeated uninstall and reinstall. Tests that create MOO sockets need
-a host environment that permits sockets; they do not install a host service.
-
-## Install and activate
+On a fresh target, these checks can run without installation privileges:
 
 ```sh
-cd /opt/dev/lmcraft
-sudo -n scripts/install.sh
+./scripts/install.sh --help
+./scripts/install.sh --check
 ```
 
-The installer:
+`--check` is read only: it does not install packages, compile, create build
+directories or change services. It reports missing build packages with a
+nonzero status; the actual `sudo ./scripts/install.sh` installs them. A passing
+check verifies local prerequisites and inputs, not future compilation or startup.
+Use `sudo ./scripts/install.sh --check` when checking an existing installation
+whose private world directory is not readable by your account.
 
-1. Checks prerequisites, existing ownership and network configuration before
-   changing files or stopping an installed service.
-2. Installs the executable, launch/health scripts, service definition and
-   readable CMDB metadata under `/opt/prod/lmcraft`.
-3. Creates the system account/group `lmcraft`, with no interactive shell.
-4. Seeds a new world from LambdaCore only if a live world does not already
-   exist. Offline emergency mode gives `Wizard` a fresh random password hashed
-   with SHA-512 crypt before public startup. The secret is supplied through
-   stdin and stored only in `conf/bootstrap-credentials`, readable by root.
-5. Installs `/etc/systemd/system/lmcraft.service`, reloads systemd and enables
-   and starts the service. The default binding is `0.0.0.0:3333`.
-6. Requires both an active service and a real MOO welcome banner before writing
-   `.deployment-version`.
-
-The successfully installed LMCraft integration version is **0.0.0** (initial
-development); the executable reports upstream server version **1.9.0alpha**.
-No Git release or version tag was created. This native C service needs no
-Python virtual environment and has no production dependency on BMForge.
-
-## Verify the installation
-
-These exact operational checks were run:
+After installation:
 
 ```sh
-sudo -n systemctl show lmcraft.service --property=ActiveState,SubState,User,Group,WorkingDirectory,ExecStart,MainPID,UnitFileState
-sudo -n ss -ltnp 'sport = :3333'
-sudo -n systemctl is-active lmcraft.service
-sudo -n systemctl is-enabled lmcraft.service
-sudo -n readlink /proc/$(systemctl show lmcraft.service --property=MainPID --value)/exe
-sudo -n journalctl -u lmcraft.service -n 12 --no-pager
-sudo -n stat -c '%a %U:%G %n' /opt/prod/lmcraft/conf/bootstrap-credentials /opt/prod/lmcraft/data /opt/prod/lmcraft/data/lmcraft.db /opt/prod/lmcraft/data/lmcraft.db.previous
+sudo systemctl status lmcraft.service
+sudo ss -ltnp 'sport = :3333'
+sudo /opt/prod/lmcraft/scripts/check-health
+sudo cat /opt/prod/lmcraft/conf/bootstrap-credentials
 ```
 
-The service reported `active` and `enabled`; `ss` showed the native `moo`
-process listening on `0.0.0.0:3333`. `/proc` resolved its executable to
-`/opt/prod/lmcraft/bin/moo`. A socket probe logged in with the generated Wizard
-credential and successfully evaluated `server_version()` as `1.9.0alpha`,
-without printing the password.
+Use the installation host's address and port 3333 in a MOO client. Log in as
+`connect Wizard PASSWORD`, using the private password above. The Pages hostname
+serves documentation; client connectivity uses the production host's address.
 
-The actual upgrade/restart path was also run:
+## Repeated installation and lifecycle
 
-```sh
-cd /opt/dev/lmcraft
-sudo -n scripts/upgrade.sh --check
-sudo -n scripts/upgrade.sh
-```
+The supported first-install workflow creates a new world. Repeating the command
+preserves an existing installation's database and credentials; it never resets
+or imports a world. This prevents an accidental second invocation from destroying
+data. Existing databases from other installations are not a supported input.
 
-It stopped the service cleanly, retained the world and credentials, promoted
-the saved checkpoint on restart, and passed the welcome-banner health check.
-Uninstallation was tested only in disposable fixtures; the live service was
-left running.
+The existing `upgrade.sh` rebuilds from the same bundled source before replacing
+managed code. `uninstall.sh` stops and removes the managed service and code while
+retaining data and configuration; it needs no compiler, source tree or seed.
+See [service operation and maintenance]({{ site.baseurl }}{% link pages/operations.md %}).
 
-Source integrity was checked with these exact commands (the snapshot was taken
-before compilation):
-
-```sh
-cd /opt/dev/lmcraft
-rg --files -0 MOO-1.9.0alpha | sort -z | xargs -0 sha256sum > build/source-before.sha256
-sha256sum --check build/source-before.sha256
-```
-
-All source checksums matched. Logo work was explicitly deferred by the owner.
+The initial manual build and exact commands used to validate the first service
+remain in the [build record]({{ site.baseurl }}{% link pages/build-record.md %}).
 
 ---
 
-[Service operation and maintenance]({{ site.baseurl }}{% link pages/operations.md %}) ·
 [Documentation index]({{ site.baseurl }}{% link index.md %})

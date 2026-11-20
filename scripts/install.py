@@ -37,9 +37,23 @@ SERVICE_USER = "lmcraft"
 SERVICE_UNIT = Path("/etc/systemd/system/lmcraft.service")
 NETWORK_CONFIG = "conf/lmcraft.env"
 DEFAULT_NETWORK = {"MOO_BIND_IP": "0.0.0.0", "MOO_PORT": "3333"}
-CORE_FILE = "downloads/LambdaCore-17May04.db"
+CORE_FILE = "deploy/LambdaCore-17May04.db"
 CORE_SHA256 = "e453a0d4f837db9969e2fa00250c3a58aafcf0d843d96495c1dd81924ebf4747"
 HEALTH_TIMEOUT = 30
+SOURCE_DIR = "MOO-1.9.0alpha"
+SOURCE_MANIFEST = "deploy/moo-source.sha256"
+GENERATED_BINARY = "bin/moo"
+REQUIRED_PACKAGES = ("build-essential", "bison", "gperf", "libcrypt-dev")
+BUILD_ARGUMENTS = ("--enable-sz=i32,bq32",)
+BUILD_JOBS = 2
+BUILD_TIMEOUT = 600
+PACKAGE_TIMEOUT = 600
+
+
+def command(arguments: list[str], *, run=subprocess.run, **kwargs):
+    """Show provisioning/build commands without logging private bootstrap input."""
+    print('+', *arguments, flush=True)
+    return run(arguments, check=True, **kwargs)
 
 
 def relative_path(name: str) -> str:
@@ -76,6 +90,75 @@ class Installation:
         if (self.checkout.is_relative_to(self.destination)
                 or self.destination.is_relative_to(self.checkout)):
             raise ValueError("Run deployment from a separate checkout outside the installation")
+
+    def validate_build_inputs(self) -> None:
+        manifest = self.checkout / SOURCE_MANIFEST
+        reject_symlinks(manifest)
+        if not manifest.is_file():
+            raise ValueError(f"Missing bundled source manifest: {SOURCE_MANIFEST}")
+        for line in manifest.read_text().splitlines():
+            digest, separator, name = line.partition('  ')
+            if not separator or len(digest) != 64 or not name.startswith(SOURCE_DIR + '/'):
+                raise ValueError("Invalid bundled source checksum manifest")
+            source = self.checkout / relative_path(name)
+            reject_symlinks(source)
+            if not source.is_file() or hashlib.sha256(source.read_bytes()).hexdigest() != digest:
+                raise ValueError(f"Bundled LambdaMOO source is missing or changed: {name}")
+        if not (self.checkout / SOURCE_DIR / 'configure').is_file():
+            raise ValueError("The bundled source must include configure")
+        if (self.checkout / SOURCE_DIR / 'config.status').exists():
+            raise ValueError("Bundled source contains an in-source build; restore the pristine source")
+        core = self.checkout / CORE_FILE
+        reject_symlinks(core)
+        if not core.is_file() or hashlib.sha256(core.read_bytes()).hexdigest() != CORE_SHA256:
+            raise ValueError(f"Bundled LambdaCore seed is missing or changed: {CORE_FILE}")
+        for name in ('build', 'bin', GENERATED_BINARY):
+            reject_symlinks(self.checkout / name)
+
+    def missing_packages(self) -> list[str]:
+        os_release = dict(line.split('=', 1) for line in Path('/etc/os-release').read_text().splitlines() if '=' in line)
+        if os_release.get('ID', '').strip('"') not in ('debian', 'ubuntu'):
+            raise ValueError("Automatic installation supports Debian/Ubuntu systemd hosts")
+        for executable in ('apt-get', 'dpkg-query'):
+            if shutil.which(executable) is None:
+                raise ValueError(f"Missing required executable: {executable}")
+        result = self.run(['dpkg-query', '-W', '-f=${Package}\t${db:Status-Status}\n', *REQUIRED_PACKAGES],
+                          capture_output=True, text=True)
+        if result.returncode not in (0, 1):
+            raise ValueError("Unable to inspect build prerequisites with dpkg-query")
+        installed = dict(line.split('\t', 1) for line in result.stdout.splitlines() if '\t' in line)
+        return [name for name in REQUIRED_PACKAGES if installed.get(name) != 'installed']
+
+    def prepare_build(self) -> None:
+        missing = self.missing_packages()
+        if missing:
+            command(['apt-get', 'update'], run=self.run, timeout=PACKAGE_TIMEOUT)
+            command(['apt-get', 'install', '-y', '--no-install-recommends', *missing],
+                    run=self.run, timeout=PACKAGE_TIMEOUT,
+                    env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
+            if self.missing_packages():
+                raise ValueError("Build prerequisites are still missing after apt-get installation")
+        for executable in ('gcc', 'make', 'bison', 'gperf'):
+            if shutil.which(executable) is None:
+                raise ValueError(f"Required build tool is missing after package setup: {executable}")
+        build_root = self.checkout / 'build'
+        build_root.mkdir(exist_ok=True)
+        # A new VPATH directory on every run prevents reuse of a stale executable.
+        with tempfile.TemporaryDirectory(prefix='moo-', dir=build_root) as folder:
+            build = Path(folder)
+            source = self.checkout / SOURCE_DIR
+            print(f'Build directory: {build}', flush=True)
+            command(['/bin/sh', str(source / 'configure'), f'--srcdir={source}', *BUILD_ARGUMENTS],
+                    run=self.run, cwd=build, timeout=BUILD_TIMEOUT)
+            command(['make', f'-j{BUILD_JOBS}'], run=self.run, cwd=build, timeout=BUILD_TIMEOUT)
+            result = self.run([str(build / 'moo'), '-e', str(source / 'Minimal.db'), '/dev/null',
+                               '-a', '127.0.0.1', '0'],
+                              input=';{server_version(), 2147483647 + 1}\nabort\n',
+                              capture_output=True, text=True, timeout=60)
+            if (result.returncode != 1 or '"1.9.0alpha"' not in result.stdout
+                    or '-2147483648' not in result.stdout):
+                raise ValueError("Compiled server failed its offline version/arithmetic smoke test")
+            self.atomic_write(self.checkout / GENERATED_BINARY, (build / 'moo').read_bytes(), 0o755)
 
     def network(self) -> dict[str, str]:
         values = DEFAULT_NETWORK.copy()
@@ -126,12 +209,6 @@ class Installation:
             raise ValueError("Missing required executable: /usr/sbin/useradd")
         for name in ('data', 'data/lmcraft.db', 'data/lmcraft.db.new', 'conf', 'conf/bootstrap-credentials'):
             reject_symlinks(self.destination / name)
-        if not (self.destination / 'data/lmcraft.db').exists():
-            core = self.checkout / CORE_FILE
-            if not core.is_file() or hashlib.sha256(core.read_bytes()).hexdigest() != CORE_SHA256:
-                raise ValueError(f"Download the documented, checksum-verified LambdaCore to {CORE_FILE}")
-        if not os.access(self.checkout / 'bin/moo', os.X_OK):
-            raise ValueError("Build and stage bin/moo before installation")
 
     def stop_service(self, previous: list[str] | None) -> None:
         if previous and self.service_unit.exists():
@@ -242,7 +319,9 @@ class Installation:
         for name in names:
             source = self.checkout / name
             reject_symlinks(source)
-            if not source.is_file():
+            if name == GENERATED_BINARY and source.exists() and not source.is_file():
+                raise ValueError(f"Generated executable target is not a regular file: {name}")
+            if name != GENERATED_BINARY and not source.is_file():
                 raise ValueError(f"Missing source file: {name}")
             target = self.destination / name
             reject_symlinks(target)
@@ -263,6 +342,9 @@ class Installation:
                     raise ValueError(f"New managed file would overwrite an unowned file: {name}")
         self.preflight_python(action)
         self.preflight_service(action, previous)
+        if action != 'uninstall':
+            self.validate_build_inputs()
+            self.missing_packages()
         return previous, current
 
     def venv_owned(self) -> bool:
@@ -371,6 +453,10 @@ class Installation:
     def apply(self, action: str, *, check: bool = False) -> None:
         previous, names = self.plan(action)
         if check:
+            if action != 'uninstall':
+                missing = self.missing_packages()
+                if missing:
+                    raise ValueError('Missing build packages (the real install will install them): ' + ', '.join(missing))
             print(f"{action}: checks passed for {self.destination}; no files changed.")
             return
         if action == 'uninstall':
@@ -392,6 +478,7 @@ class Installation:
                     self.atomic_write(self.destination / MANIFEST, (json.dumps(removed, indent=2) + '\n').encode())
             print(f"Removed managed {PROJECT_NAME} files; unowned files and persistent data are retained.")
             return
+        self.prepare_build()
         self.stop_service(previous)
         self.destination.mkdir(parents=True, exist_ok=True)
         self.destination.chmod(0o755)
