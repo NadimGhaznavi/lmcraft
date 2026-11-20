@@ -1,0 +1,100 @@
+# BMFORGE_COMPONENT: bmforge.github-pages; spec_version: 0.1.0
+# Replace all project placeholders; shared presentation lives in the theme.
+remote_theme: "NadimGhaznavi/minimal-mistakes"
+minimal_mistakes_skin: "dark"
+
+title: "LMCraft"
+title_separator: "-"
+name: "LMCraft"
+description: "LambdaMOO meets Minecraft."
+locale: "en-US"
+url: "https://lmcraft.osoyalce.com"
+baseurl: ""
+repository: "NadimGhaznavi/lmcraft"
+# Project logo deferred by the owner during initial deployment.
+
+mycount:
+  endpoint: "https://count.osoyalce.com/count"
+  site: "lmcraft"
+multilingual:
+  enabled: true
+  default_lang: en
+
+author:
+  name: "Nadim-Daniel Ghaznavi"
+  bio: "Creator"
+  location: "Hamilton, ON"
+  email: "nghaznavi@gmail.com"
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/NadimGhaznavi"
+    - label: "My Website"
+      icon: "fas fa-fw fa-link"
+      url: "https://www.osoyalce.com/"
+footer:
+  since: "2026"
+
+include:
+  - pages
+# Add the application's source/package directories to this list.
+exclude:
+  - AGENTS.md
+  - .agents
+  - .codex
+  - .aws
+  - MOO-1.9.0alpha
+  - build
+  - bin
+  - deploy
+  - downloads
+  - lmcraft
+  - README.md
+  - LICENSE
+  - scripts
+  - tests
+  - templates
+  - components
+  - skills
+  - vendor
+  - node_modules
+  - Gemfile
+  - Gemfile.lock
+  - pyproject.toml
+  - package.json
+  - package-lock.json
+encoding: "utf-8"
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  hard_wrap: false
+  auto_ids: true
+  toc_levels: 1..6
+sass:
+  style: compressed
+plugins:
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-feed
+  - jekyll-include-cache
+
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: single
+      classes: wide
+      author_profile: true
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      classes: wide
+      author_profile: true
+      read_time: false
+      share: true
+      related: true

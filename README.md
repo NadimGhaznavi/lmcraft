@@ -1,3 +1,5 @@
-# lmcraft
+# LMCraft
 
-[LambdaMOO meets Minecraft](https://lmcraft.osoyalce.com)
+LambdaMOO meets Minecraft.
+
+[Project website and documentation](https://lmcraft.osoyalce.com/)

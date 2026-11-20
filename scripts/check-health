@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Read an actual MOO welcome banner, without logging in or changing world data.
+set -euo pipefail
+host=${MOO_BIND_IP:-0.0.0.0}
+[[ "$host" != 0.0.0.0 ]] || host=127.0.0.1
+exec timeout 12 bash -c '
+    exec 3<>"/dev/tcp/$1/$2"
+    for ((i=0; i<30; i++)); do
+        IFS= read -r -t 8 line <&3 || exit 1
+        if [[ "$line" == *"Welcome"* || "$line" == *"LMCraft"* ]]; then
+            printf "LMCraft is accepting MOO connections on %s:%s\n" "$1" "$2"
+            exit 0
+        fi
+    done
+    exit 1
+' health "$host" "${MOO_PORT:-3333}"

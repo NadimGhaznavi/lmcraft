@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# systemd sets WorkingDirectory and supplies the preserved EnvironmentFile.
+set -euo pipefail
+cd data
+if [[ -f lmcraft.db.new ]]; then
+    cp -p -- lmcraft.db lmcraft.db.previous
+    mv -- lmcraft.db.new lmcraft.db
+fi
+exec ../bin/moo lmcraft.db lmcraft.db.new -a "${MOO_BIND_IP:-0.0.0.0}" "${MOO_PORT:-3333}"

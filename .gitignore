@@ -224,3 +224,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# LMCraft native build payload and Jekyll output
+/bin/moo
+_site/
+.jekyll-cache/
+.jekyll-metadata
