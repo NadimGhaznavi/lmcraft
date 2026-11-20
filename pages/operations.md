@@ -92,8 +92,8 @@ appropriate access controls. Do not copy the public seed over a live world.
 
 ## Upgrade and uninstall
 
-After building and staging a replacement executable using the
-[installation guide]({{ site.baseurl }}{% link pages/installation.md %}):
+After updating the checkout to the intended release, the upgrade command builds
+the bundled source automatically:
 
 ```sh
 cd /opt/dev/lmcraft
@@ -105,8 +105,8 @@ Upgrade stops the service before replacing executable files, keeps configuration
 and world data, restarts the service, and updates the version marker only after
 health verification succeeds. File replacement is not a transactional rollback:
 if activation fails, the marker retains the last successful version, but the
-new files remain for diagnosis. Correct the failure or restage the previous
-build and rerun the installer; inspect `journalctl -u lmcraft.service` first.
+new files remain for diagnosis. Correct the failure or check out the previous
+release and rerun the upgrade; inspect `journalctl -u lmcraft.service` first.
 
 To remove the installation's managed service and code:
 
