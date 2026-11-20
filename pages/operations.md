@@ -7,7 +7,8 @@ translation_key: lmcraft-operations
 ---
 
 LMCraft runs as `lmcraft.service` on the installation host, listening for MOO
-clients on TCP **3333**. Use that host's address with a MOO client or Telnet.
+clients on **0.0.0.0:3333** (all IPv4 interfaces) by default. Use that host's
+address with a MOO client or Telnet.
 `lmcraft.osoyalce.com` is the documentation hostname; it is not a game-server
 address unless a separate DNS/network arrangement provides that routing.
 
@@ -56,7 +57,9 @@ sudo /opt/prod/lmcraft/scripts/check-health
 
 The health script defaults to port 3333; if configuration is changed, pass the
 same settings as environment variables when invoking it manually. The installer
-does this automatically. No host reboot was needed or performed. Local client
+does this automatically. When the service binds to `0.0.0.0`, the health script
+connects through `127.0.0.1` for its local probe; this does not change the
+service's listening address. No host reboot was needed or performed. Local client
 connectivity was verified; routing and firewalls beyond the host require their
 own connectivity check from the intended client network.
 

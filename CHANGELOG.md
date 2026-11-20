@@ -8,6 +8,20 @@ translation_key: lmcraft-changelog
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-19 @ 21:05
+
+### Summary
+
+Install Autoconf automatically when missing so fresh hosts have the required
+build tools. Clarify that the service listens on all IPv4 interfaces by default.
+
+### Fixed
+
+- Include `autoconf` in the install and upgrade prerequisites and verify its
+  executable before compilation.
+- Document the default `0.0.0.0:3333` listener and distinguish it from the
+  loopback address used by local health probes.
+
 ## [0.1.0] - 2026-11-19 @ 20:52
 
 ### Summary

@@ -44,8 +44,8 @@ from a developer's machine.
 
 1. Validates deployment ownership, configuration, the bundled source checksums
    and the seed database before changing the installation.
-2. Checks Debian package status for `build-essential`, `bison`, `gperf` and
-   `libcrypt-dev`. If any are missing, runs:
+2. Checks Debian package status for `build-essential`, `autoconf`, `bison`,
+   `gperf` and `libcrypt-dev`. If any are missing, runs:
 
    ```sh
    apt-get update
@@ -74,9 +74,9 @@ from a developer's machine.
 6. Creates the `lmcraft` system account and initializes a new database from
    the bundled clean LambdaCore seed. Assigns a random Wizard password using
    SHA-512 crypt before the service accepts clients.
-7. Enables and starts `lmcraft.service`, then verifies an active service and
-   an actual MOO welcome banner on port 3333 before recording installation
-   success in `.deployment-version`.
+7. Enables and starts `lmcraft.service` on `0.0.0.0:3333` (all IPv4 interfaces),
+   then verifies an active service and an actual MOO welcome banner before
+   recording installation success in `.deployment-version`.
 
 The source directory is read only during installation. All generated build
 files live outside it; the installed server has no runtime dependency on the
