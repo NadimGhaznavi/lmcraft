@@ -1,0 +1,2 @@
+# jhcraft
+JHCore meets Minecraft
