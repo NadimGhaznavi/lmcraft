@@ -43,7 +43,7 @@ HEALTH_TIMEOUT = 30
 SOURCE_DIR = "MOO-1.9.0alpha"
 SOURCE_MANIFEST = "deploy/moo-source.sha256"
 GENERATED_BINARY = "bin/moo"
-REQUIRED_PACKAGES = ("build-essential", "bison", "gperf", "libcrypt-dev")
+REQUIRED_PACKAGES = ("build-essential", "autoconf", "bison", "gperf", "libcrypt-dev")
 BUILD_ARGUMENTS = ("--enable-sz=i32,bq32",)
 BUILD_JOBS = 2
 BUILD_TIMEOUT = 600
@@ -138,7 +138,7 @@ class Installation:
                     env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
             if self.missing_packages():
                 raise ValueError("Build prerequisites are still missing after apt-get installation")
-        for executable in ('gcc', 'make', 'bison', 'gperf'):
+        for executable in ('gcc', 'make', 'autoconf', 'bison', 'gperf'):
             if shutil.which(executable) is None:
                 raise ValueError(f"Required build tool is missing after package setup: {executable}")
         build_root = self.checkout / 'build'
